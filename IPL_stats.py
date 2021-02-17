@@ -13,6 +13,8 @@ import matplotlib.pyplot as plt
 matches = pd.read_csv('matches.csv')
 deliveries = pd.read_csv('deliveries.csv')
 
+deliveries.loc[((deliveries['wide_runs'] > 0) & (deliveries['batsman_runs'] != 0)), 'batsman_runs'] = 0
+
 #player_grouped = deliveries.groupby('batsman')[['batsman_runs', 'match_id']].agg(['sum', 'nunique'])
 
 #player_grouped = deliveries.groupby(['batsman', 'batting_team']).agg({'' })
@@ -66,7 +68,7 @@ batsman_stats.sort_values(['Total Runs', 'Played'], ascending = False, inplace=T
 #Bowler
 
 
-deliveries['consided runs'] = deliveries.iloc[:, [10,13,15]].sum(axis=1)
+deliveries['consided runs'] = deliveries[deliveries['is_super_over'] == 0].iloc[:, [10,13,15]].sum(axis=1)
 
 bowler_in_teams = (deliveries[~((deliveries['wide_runs'] > 0) | (deliveries['noball_runs'] > 0))].groupby(['bowler', 'bowling_team'])
                                               .agg({'match_id': 'nunique',
@@ -82,21 +84,26 @@ bowler_in_teams.name = 'Bowlers statistics in each team'
 
 bowler_stats = (deliveries[~((deliveries['wide_runs'] > 0) | (deliveries['noball_runs'] > 0))].groupby(['bowler'])
                                               .agg({'match_id': 'nunique',
-                                                    'consided runs': 'sum',
+                                                    #'consided runs': 'sum',
                                                     'over' : 'count'
                                                     })
                                               .reset_index(drop=False)
                                               .rename(columns={'match_id' : 'Played',
-                                                               'consided runs' : 'Runs Given',
+                                                               #'consided runs' : 'Runs Given',
                                                                'over' : 'Balls'}))
 
+temp_runs_bowler = deliveries[deliveries['is_super_over'] == 0].groupby('bowler')['consided runs'].sum()
 
-bowler_stats['Economy'] = round((bowler_stats['Runs Given'] / (bowler_stats['Balls'] / 6)), 1)
+bowler_stats = bowler_stats.merge(temp_runs_bowler, on='bowler', how='inner')
+del(temp_runs_bowler)
+
+bowler_stats['Economy'] = round((bowler_stats['consided runs'] / (bowler_stats['Balls'] / 6)), 1)
 #temp = delivery.groupby('batsman')['batsman_runs'].value_counts().reset_index(drop=False)
 temp_wicket_filters = (pd.notnull(deliveries['dismissal_kind']) 
                            & (deliveries['dismissal_kind'] != 'retired hurt') 
                            & (deliveries['dismissal_kind'] != 'run out') 
-                           & (deliveries['dismissal_kind'] != 'obstructing the field'))
+                           & (deliveries['dismissal_kind'] != 'obstructing the field')
+                           & (deliveries['is_super_over'] == 0))
 
 temp_wickets = (deliveries[temp_wicket_filters]
                            .groupby('bowler')['dismissal_kind'].count()
@@ -106,25 +113,33 @@ temp_wickets = (deliveries[temp_wicket_filters]
 bowler_stats = bowler_stats.merge(temp_wickets, on='bowler', how='left')
 
 bowler_wickets_each_match = deliveries[temp_wicket_filters].groupby(['match_id', 'bowler'])['dismissal_kind'].count().reset_index(drop=False)
+#bowler_wickets_each_match_test = deliveries[temp_wicket_filters].groupby(['match_id', 'bowler']).agg({'dismissal_kind' : 'count', 'consided runs' : 'sum'}).reset_index(drop=False)
+
+#newline
+bowler_runs_each_match = deliveries[deliveries['is_super_over'] == 0].groupby(['match_id', 'bowler']).agg({'consided runs' : 'sum'}).reset_index(drop=False)
+bowler_wickets_each_match = bowler_wickets_each_match.merge(bowler_runs_each_match, on=['match_id', 'bowler'], how='left')
+
+
+#temp = bowler_wickets_each_match.groupby('bowler').agg({'dismissal_kind':'idxmax'}).reset_index(drop=False)
+#temp = bowler_wickets_each_match.sort_values(['bowler', 'dismissal_kind', 'consided runs'], ascending=[True, False, True])
+temp = bowler_wickets_each_match.groupby('bowler').agg({'dismissal_kind' : 'max', 'consided runs': 'min'}).reset_index(drop=False)
+#newline
+#temp1 = bowler_wickets_each_match.groupby(['match_id', 'bowler']).agg({'consided runs': 'sum'}).reset_index(drop=False)
 
 
 
 
-
-temp = bowler_wickets_each_match.groupby('bowler').agg({'dismissal_kind':'idxmax'}).reset_index(drop=False)
-temp_best_fig_wickets = bowler_wickets_each_match.iloc[temp.iloc[:,1]]
+#temp_best_fig_wickets = bowler_wickets_each_match.iloc[temp.iloc[:,1]]
+temp_best_fig_final = bowler_wickets_each_match.merge(temp, on=['bowler', 'dismissal_kind', 'consided runs'], how='right')
 del(temp)
 #temp_best_fig_wickets = bowler_wickets_each_match.merge(temp, on=['bowler', 'dismissal_kind'], how='right')
-
-
-
 #temp_best_fig_wickets = bowler_wickets_each_match[temp.isin(bowler_wickets_each_match['dismissal_kind'])]
 
-temp_best_fig_runs_raw = deliveries.merge(temp_best_fig_wickets, on=['match_id','bowler'], how='right')
+#temp_best_fig_runs_raw = deliveries.merge(temp_best_fig_wickets, on=['match_id','bowler'], how='right')
+#temp_best_fig = temp_best_fig_runs_raw[temp_best_fig_runs_raw['is_super_over'] == 0].groupby(['bowler', 'match_id'])['consided runs'].sum().reset_index(drop=False)
 
-temp_best_fig = temp_best_fig_runs_raw[temp_best_fig_runs_raw['is_super_over'] == 0].groupby(['bowler', 'match_id'])['consided runs'].sum().reset_index(drop=False)
+#temp_best_fig_final = temp_best_fig_final.merge(temp_best_fig_wickets, on=['match_id', 'bowler'], how='inner')
 
-temp_best_fig_final = temp_best_fig.merge(temp_best_fig_wickets, on=['match_id', 'bowler'], how='inner')
 
 temp_best_fig_final = temp_best_fig_final.astype(str)
 temp_best_fig_final['Best Figure'] = temp_best_fig_final[['consided runs', 'dismissal_kind']].agg('/'.join, axis=1)
@@ -154,4 +169,16 @@ bowler_stats.name = 'Most runs in IPL'
 
 bowler_in_teams.sort_values(['Total Runs', 'Played'], ascending = False, inplace=True)
 bowler_stats.sort_values(['Total Runs', 'Played'], ascending = False, inplace=True)
+
+
+anik code
+
+ch_wickets = []
+for i in range(0, 179078, +1):
+    if deliveries.bowler[i] == "CH Morris" and pd.isnull(deliveries.player_dismissed[i]) == False:
+        ch_wickets.append(deliveries.player_dismissed[i])
+        
+print(len(ch_wickets))
+
+
 '''
