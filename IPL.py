@@ -38,3 +38,5 @@ for name, group in seasons:
     temp['no result'] = lst_no_result
     temp = temp.sort_values('wins', ascending=False)
     stats[name] = temp
+
+del([temp, team, seasons, name, lst_won, lst_played, lst_no_result, group])
