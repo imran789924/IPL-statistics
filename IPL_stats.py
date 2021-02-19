@@ -19,7 +19,7 @@ deliveries.loc[((deliveries['wide_runs'] > 0) & (deliveries['batsman_runs'] != 0
 
 #player_grouped = deliveries.groupby(['batsman', 'batting_team']).agg({'' })
 
-player_in_teams = (deliveries[(deliveries['wide_runs'] == 0) | (deliveries['is_super_over'] == 0)].groupby(['batsman', 'batting_team'])
+batsman_in_teams = (deliveries[(deliveries['wide_runs'] == 0) | (deliveries['is_super_over'] == 0)].groupby(['batsman', 'batting_team'])
                                               .agg({'match_id': 'nunique',
                                                     'batsman_runs': 'sum',
                                                     'over': 'count'})
@@ -28,7 +28,7 @@ player_in_teams = (deliveries[(deliveries['wide_runs'] == 0) | (deliveries['is_s
                                                                'batsman_runs' : 'Total Runs',
                                                                'batting_team' : 'Team',
                                                                'over' : 'Ball faced'}))
-player_in_teams.name = 'Batman scored run in each team'
+batsman_in_teams.name = 'Batman scored run in each team'
 
 
 batsman_stats = (deliveries[(deliveries['wide_runs'] == 0) & (deliveries['is_super_over'] == 0)].groupby(['batsman'])
@@ -58,8 +58,7 @@ del([temp_4, temp_6])
 
 batsman_stats.name = 'Most runs in IPL'
 
-player_in_teams.sort_values(['Total Runs', 'Innings'], ascending = False, inplace=True)
-batsman_stats.sort_values(['Total Runs', 'Innings'], ascending = False, inplace=True)
+
 
 
 batsman_run_each_match = deliveries[(deliveries['wide_runs'] == 0) & (deliveries['is_super_over'] == 0)].groupby(['match_id','batsman']).agg({'batsman_runs':'sum'}).reset_index(drop=False)
@@ -71,7 +70,29 @@ batsman_stats = batsman_stats.merge(batsman_highest_score, on='batsman', how='le
 batsman_stats = batsman_stats.merge(batsman_50, on='batsman', how='left')
 batsman_stats = batsman_stats.merge(batsman_100, on='batsman', how='left')
 
+
+
+batsman_no_of_dismissals = deliveries[(deliveries['dismissal_kind'] != 'retired hurt') & deliveries['is_super_over'] == 0]['player_dismissed'].value_counts().reset_index(drop=False)
+batsman_no_of_dismissals.columns = ['batsman', 'Total dismissals']
+
+batsman_runs_individual = batsman_stats[['batsman', 'Total Runs']].reset_index(drop=False)
+batsman_average = batsman_runs_individual.merge(batsman_no_of_dismissals, on='batsman', how='left')
+
+batsman_stats['Average'] = round((batsman_average['Total Runs'] / batsman_average['Total dismissals']), 2)
+
+
 batsman_stats.fillna(0, inplace=True)
+
+
+col = ['batsman', 'Innings', 'Total Runs', 'Ball faced', 'Average', 'Highest score', 'Strike Rate', '50\'s', '100\'s', '4\'s', '6\'s']
+batsman_stats = batsman_stats[col]
+
+batsman_in_teams.sort_values(['Total Runs', 'Innings'], ascending = False, inplace=True)
+batsman_stats.sort_values(['Total Runs', 'Innings'], ascending = False, inplace=True)
+
+
+
+
 
 #######################################################################################
 #Bowler
@@ -168,7 +189,7 @@ bowler_stats = bowler_stats.merge(temp_best_fig_final, on=['bowler'], how='inner
 bowler_stats.drop('match_id', axis=1, inplace=True)
 
 
-bowler_stats.sort_values(['Wickets', 'Innings'], ascending = False, inplace=True)
+
 
 bowler_stats['Best Figure'] = bowler_stats['Best Figure'].str.replace('\.\d+', '')
 
@@ -178,9 +199,14 @@ temp_5 = bowler_wickets_each_match[bowler_wickets_each_match['dismissal_kind'] >
 bowler_stats = bowler_stats.merge(temp_3, on='bowler', how='left')
 bowler_stats = bowler_stats.merge(temp_5, on='bowler', how='left')
 
-cols = ['bowler', 'Innings', 'Balls', 'Conceded Runs', 'Wickets', 'Best Figure', 'Economy', '3 wickets', '5 wickets']
+bowler_stats['Average'] = bowler_stats['Conceded Runs'] / bowler_stats['Wickets']
 
+cols = ['bowler', 'Innings', 'Balls', 'Conceded Runs', 'Wickets', 'Best Figure', 'Average', 'Economy', '3 wickets', '5 wickets']
 bowler_stats = bowler_stats[cols]
 
 
 bowler_stats.fillna(0, inplace=True)
+
+bowler_stats.sort_values(['Wickets', 'Innings'], ascending = False, inplace=True)
+
+del([temp1, temp2, temp_wickets, temp_wicket_filters, temp_best_fig_final, temp_3, temp_5, cols, col, bowler_runs_each_match, batsman_no_of_dismissals, batsman_run_each_match, batsman_runs_individual, batsman_highest_score, batsman_100, batsman_50])
