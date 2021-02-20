@@ -39,4 +39,14 @@ for name, group in seasons:
     temp = temp.sort_values('wins', ascending=False)
     stats[name] = temp
 
-del([temp, team, seasons, name, lst_won, lst_played, lst_no_result, group])
+
+#Total wins of a team
+total_stats = pd.DataFrame()
+for year, stat in stats.items():
+    total_stats = total_stats.append(stat)
+
+total_stats_grouped = total_stats.groupby('teams').agg({'played': 'sum', 'wins': 'sum'})
+total_stats_grouped['Win percentage'] = round(((total_stats_grouped['wins'] / total_stats_grouped['played']) * 100), 2)
+Most_successful_team_played_least_70_match = (total_stats_grouped[total_stats_grouped['played'] >= 70]).sort_values(['Win percentage'], ascending=False)
+
+del([total_stats, year, stat, temp, team, seasons, name, lst_won, lst_played, lst_no_result, group])
